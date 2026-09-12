@@ -9,7 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/stopwatch_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/memory_screen.dart';
-import 'screens/db_manager_screen.dart';
+import 'screens/connection_screen.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -17,13 +17,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.instance.init();
   final prefs = await SharedPreferences.getInstance();
+  final settings = SettingsProvider(prefs);
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TaskProvider()),
-        ChangeNotifierProvider(create: (_) => EventProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider(prefs)),
+        ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider(create: (_) => TaskProvider(settings)),
+        ChangeNotifierProvider(create: (_) => EventProvider(settings)),
       ],
       child: const FloatNoteApp(),
     ),
@@ -61,7 +62,7 @@ class _RootShellState extends State<_RootShell> {
     CalendarScreen(),
     StopwatchScreen(),
     MemoryScreen(),
-    DbManagerScreen(),
+    ConnectionScreen(),
   ];
 
   List<NavigationDestination> get _items => const [
@@ -86,9 +87,9 @@ class _RootShellState extends State<_RootShell> {
           label: 'Memory',
         ),
         NavigationDestination(
-          icon: Icon(Icons.storage_outlined),
-          selectedIcon: Icon(Icons.storage),
-          label: 'DB',
+          icon: Icon(Icons.hub_outlined),
+          selectedIcon: Icon(Icons.hub),
+          label: 'Connect',
         ),
       ];
 

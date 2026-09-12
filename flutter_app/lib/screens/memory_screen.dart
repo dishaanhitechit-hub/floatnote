@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../models/summary.dart';
-import '../services/api_service.dart';
+import '../providers/settings_provider.dart';
 import '../theme/palette.dart';
 
 class MemoryScreen extends StatefulWidget {
@@ -11,7 +12,6 @@ class MemoryScreen extends StatefulWidget {
 }
 
 class _MemoryScreenState extends State<MemoryScreen> {
-  final _api = ApiService();
   List<Summary> _summaries = [];
   bool _loading = true;
 
@@ -23,8 +23,9 @@ class _MemoryScreenState extends State<MemoryScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final api = context.read<SettingsProvider>().primaryApi;
     try {
-      _summaries = await _api.fetchSummaries();
+      _summaries = await api.fetchSummaries();
     } finally {
       setState(() => _loading = false);
     }

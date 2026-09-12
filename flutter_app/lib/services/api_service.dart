@@ -5,81 +5,84 @@ import '../models/event.dart';
 import '../models/summary.dart';
 
 class ApiService {
-  // 10.0.2.2 is the Android emulator's alias for the host machine (localhost on Mac)
-  static const _base = 'http://10.0.2.2:5050';
+  final String baseUrl;
+
+  ApiService(this.baseUrl);
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
 
   Future<List<Task>> fetchTasks() async {
-    final res = await http.get(Uri.parse('$_base/api/tasks/'));
+    final res = await http.get(Uri.parse('$baseUrl/api/tasks/')).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Task.fromJson(j)).toList();
   }
 
   Future<Task> createTask(Map<String, dynamic> data) async {
     final res = await http.post(
-      Uri.parse('$_base/api/tasks/'),
+      Uri.parse('$baseUrl/api/tasks/'),
       headers: _json,
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return Task.fromJson(jsonDecode(res.body));
   }
 
   Future<Task> updateTask(int id, Map<String, dynamic> data) async {
     final res = await http.put(
-      Uri.parse('$_base/api/tasks/$id'),
+      Uri.parse('$baseUrl/api/tasks/$id'),
       headers: _json,
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return Task.fromJson(jsonDecode(res.body));
   }
 
   Future<void> deleteTask(int id) async {
-    final res = await http.delete(Uri.parse('$_base/api/tasks/$id'));
+    final res = await http.delete(Uri.parse('$baseUrl/api/tasks/$id'))
+        .timeout(const Duration(seconds: 8));
     _check(res);
   }
 
   Future<void> setReminder(int id, DateTime dt) async {
     final res = await http.post(
-      Uri.parse('$_base/api/tasks/$id/remind'),
+      Uri.parse('$baseUrl/api/tasks/$id/remind'),
       headers: _json,
       body: jsonEncode({'reminder_time': dt.toIso8601String()}),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
   }
 
   // ── Events ─────────────────────────────────────────────────────────────────
 
   Future<List<FNEvent>> fetchEvents() async {
-    final res = await http.get(Uri.parse('$_base/api/events/'));
+    final res = await http.get(Uri.parse('$baseUrl/api/events/')).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => FNEvent.fromJson(j)).toList();
   }
 
   Future<FNEvent> createEvent(Map<String, dynamic> data) async {
     final res = await http.post(
-      Uri.parse('$_base/api/events/'),
+      Uri.parse('$baseUrl/api/events/'),
       headers: _json,
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return FNEvent.fromJson(jsonDecode(res.body));
   }
 
   Future<FNEvent> updateEvent(int id, Map<String, dynamic> data) async {
     final res = await http.put(
-      Uri.parse('$_base/api/events/$id'),
+      Uri.parse('$baseUrl/api/events/$id'),
       headers: _json,
       body: jsonEncode(data),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return FNEvent.fromJson(jsonDecode(res.body));
   }
 
   Future<void> deleteEvent(int id) async {
-    final res = await http.delete(Uri.parse('$_base/api/events/$id'));
+    final res = await http.delete(Uri.parse('$baseUrl/api/events/$id'))
+        .timeout(const Duration(seconds: 8));
     _check(res);
   }
 
@@ -87,24 +90,25 @@ class ApiService {
 
   Future<Map<String, dynamic>> previewRange(String from, String to) async {
     final res = await http.get(
-      Uri.parse('$_base/api/db/preview?from=$from&to=$to'),
-    );
+      Uri.parse('$baseUrl/api/db/preview?from=$from&to=$to'),
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return jsonDecode(res.body);
   }
 
   Future<Map<String, dynamic>> clearRange(String from, String to) async {
     final res = await http.post(
-      Uri.parse('$_base/api/db/clear-range'),
+      Uri.parse('$baseUrl/api/db/clear-range'),
       headers: _json,
       body: jsonEncode({'from': from, 'to': to}),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
     return jsonDecode(res.body);
   }
 
   Future<List<Summary>> fetchSummaries() async {
-    final res = await http.get(Uri.parse('$_base/api/db/summaries'));
+    final res = await http.get(Uri.parse('$baseUrl/api/db/summaries'))
+        .timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Summary.fromJson(j)).toList();
   }
@@ -117,14 +121,14 @@ class ApiService {
     required String label,
   }) async {
     final res = await http.post(
-      Uri.parse('$_base/api/stopwatch/'),
+      Uri.parse('$baseUrl/api/stopwatch/'),
       headers: _json,
       body: jsonEncode({
         'duration_seconds': durationSeconds,
         'laps': laps,
         'label': label,
       }),
-    );
+    ).timeout(const Duration(seconds: 8));
     _check(res);
   }
 
@@ -134,17 +138,23 @@ class ApiService {
     final params = <String, String>{};
     if (q.isNotEmpty) params['q'] = q;
     if (tag.isNotEmpty) params['tag'] = tag;
-    final uri = Uri.parse('$_base/api/tasks/search')
+    final uri = Uri.parse('$baseUrl/api/tasks/search')
         .replace(queryParameters: params);
-    final res = await http.get(uri);
+    final res = await http.get(uri).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Task.fromJson(j)).toList();
   }
 
-  Future<List<Map<String, dynamic>>> fetchTags() async {
-    final res = await http.get(Uri.parse('$_base/api/tasks/tags'));
-    _check(res);
-    return List<Map<String, dynamic>>.from(jsonDecode(res.body));
+  // ── Health check ────────────────────────────────────────────────────────────
+
+  Future<bool> ping() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/'))
+          .timeout(const Duration(seconds: 4));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

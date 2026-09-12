@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+
+enum DbMode { local, cloud, both }
 
 class SettingsProvider extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -44,5 +47,60 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> toggleDotGrid() async {
     await _prefs.setBool('show_dot_grid', !showDotGrid);
     notifyListeners();
+  }
+
+  // ── Database mode ───────────────────────────────────────────────────────────
+
+  static const _defaultLocalUrl = 'http://10.0.2.2:5050';
+
+  DbMode get dbMode {
+    switch (_prefs.getString('db_mode') ?? 'local') {
+      case 'cloud': return DbMode.cloud;
+      case 'both':  return DbMode.both;
+      default:      return DbMode.local;
+    }
+  }
+
+  Future<void> setDbMode(DbMode m) async {
+    await _prefs.setString('db_mode', m.name);
+    notifyListeners();
+  }
+
+  String get localUrl => _prefs.getString('local_url') ?? _defaultLocalUrl;
+  String get cloudUrl => _prefs.getString('cloud_url') ?? '';
+
+  Future<void> setLocalUrl(String url) async {
+    await _prefs.setString('local_url', url.trimRight().replaceAll(RegExp(r'/$'), ''));
+    notifyListeners();
+  }
+
+  Future<void> setCloudUrl(String url) async {
+    await _prefs.setString('cloud_url', url.trimRight().replaceAll(RegExp(r'/$'), ''));
+    notifyListeners();
+  }
+
+  // ── Active API instances ────────────────────────────────────────────────────
+
+  ApiService get localApi => ApiService(localUrl);
+
+  ApiService? get cloudApi => cloudUrl.isNotEmpty ? ApiService(cloudUrl) : null;
+
+  /// Primary API for reads (local preferred, falls back to cloud).
+  ApiService get primaryApi {
+    switch (dbMode) {
+      case DbMode.cloud: return cloudApi ?? localApi;
+      default:           return localApi;
+    }
+  }
+
+  /// All active APIs for fan-out writes.
+  List<ApiService> get activeApis {
+    switch (dbMode) {
+      case DbMode.local: return [localApi];
+      case DbMode.cloud: return [cloudApi ?? localApi];
+      case DbMode.both:
+        final c = cloudApi;
+        return c != null ? [localApi, c] : [localApi];
+    }
   }
 }
