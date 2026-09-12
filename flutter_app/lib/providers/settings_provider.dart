@@ -51,13 +51,14 @@ class SettingsProvider extends ChangeNotifier {
 
   // ── Database mode ───────────────────────────────────────────────────────────
 
-  static const _defaultLocalUrl = 'http://10.0.2.2:5050';
+  static const _defaultLocalUrl  = 'http://10.0.2.2:5050';
+  static const _defaultCloudUrl = 'http://132.154.156.82/floatnote-api';
 
   DbMode get dbMode {
-    switch (_prefs.getString('db_mode') ?? 'local') {
-      case 'cloud': return DbMode.cloud;
+    switch (_prefs.getString('db_mode') ?? 'cloud') {
+      case 'local': return DbMode.local;
       case 'both':  return DbMode.both;
-      default:      return DbMode.local;
+      default:      return DbMode.cloud;
     }
   }
 
@@ -67,7 +68,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   String get localUrl => _prefs.getString('local_url') ?? _defaultLocalUrl;
-  String get cloudUrl => _prefs.getString('cloud_url') ?? '';
+  String get cloudUrl => _prefs.getString('cloud_url') ?? _defaultCloudUrl;
 
   Future<void> setLocalUrl(String url) async {
     await _prefs.setString('local_url', url.trimRight().replaceAll(RegExp(r'/$'), ''));

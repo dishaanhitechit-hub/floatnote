@@ -145,11 +145,14 @@ class _StopwatchScreenState extends State<StopwatchScreen>
     );
     if (confirmed != true || !context.mounted) return;
     try {
-      await ApiService().saveStopwatchSession(
-        durationSeconds: _elapsedMs / 1000.0,
-        laps: _laps.map((ms) => ms / 1000.0).toList(),
-        label: label,
-      );
+      final apis = context.read<SettingsProvider>().activeApis;
+      for (final api in apis) {
+        await api.saveStopwatchSession(
+          durationSeconds: _elapsedMs / 1000.0,
+          laps: _laps.map((ms) => ms / 1000.0).toList(),
+          label: label,
+        );
+      }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Session saved!'),

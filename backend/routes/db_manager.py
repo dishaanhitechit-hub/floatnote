@@ -98,12 +98,13 @@ def get_summary(summary_id):
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _tasks_in_range(from_date: date, to_date: date):
-    from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0, tzinfo=timezone.utc)
-    to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59, tzinfo=timezone.utc)
+    # Use naive datetimes — SQLite stores without timezone
+    from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0)
+    to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59)
     return Task.query.filter(Task.created_at >= from_dt, Task.created_at <= to_dt).all()
 
 
 def _events_in_range(from_date: date, to_date: date):
-    from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0, tzinfo=timezone.utc)
-    to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59, tzinfo=timezone.utc)
+    from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0)
+    to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59)
     return Event.query.filter(Event.start_time >= from_dt, Event.start_time <= to_dt).all()

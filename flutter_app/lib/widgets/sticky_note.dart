@@ -62,12 +62,25 @@ class _StickyNoteState extends State<StickyNote>
     }
   }
 
+  // Compute readable text color from background luminance.
+  // User's stored textColor is kept in the editor; here we auto-contrast.
   Color _textColor() {
     try {
-      return Color(int.parse(widget.task.textColor.replaceFirst('#', '0xFF')));
+      final bg = Color(int.parse(widget.task.color.replaceFirst('#', '0xFF')));
+      return _contrastFor(bg);
     } catch (_) {
-      return FNPalette.textDark;
+      return Colors.black87;
     }
+  }
+
+  static Color _contrastFor(Color bg) {
+    // Relative luminance (WCAG formula)
+    double chan(double c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055).clamp(0.0, 1.0);
+    final r = chan(bg.r / 255);
+    final g = chan(bg.g / 255);
+    final b = chan(bg.b / 255);
+    final lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 0.35 ? Colors.black87 : Colors.white;
   }
 
   TextAlign _align() {

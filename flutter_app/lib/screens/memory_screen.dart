@@ -77,9 +77,16 @@ class _SummaryCard extends StatelessWidget {
 
   static final _colors = FNPalette.noteColors;
 
+  static Color _contrastFor(Color bg) {
+    double chan(double c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055).clamp(0.0, 1.0);
+    final lum = 0.2126 * chan(bg.r / 255) + 0.7152 * chan(bg.g / 255) + 0.0722 * chan(bg.b / 255);
+    return lum > 0.35 ? Colors.black87 : Colors.white;
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _colors[summary.id % _colors.length];
+    final onColor = _contrastFor(color);
     final doneRate = summary.taskCount == 0
         ? 0.0
         : summary.completedCount / summary.taskCount;
@@ -97,8 +104,7 @@ class _SummaryCard extends StatelessWidget {
           backgroundColor: color,
           child: Text(
             '${summary.taskCount}',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.black54),
+            style: TextStyle(fontWeight: FontWeight.bold, color: onColor),
           ),
         ),
         title: Text(
@@ -135,7 +141,7 @@ class _SummaryCard extends StatelessWidget {
                 children: summary.topTags
                     .map((t) => Chip(
                           label: Text('#$t',
-                              style: const TextStyle(fontSize: 10)),
+                              style: TextStyle(fontSize: 10, color: onColor)),
                           padding: EdgeInsets.zero,
                           visualDensity: VisualDensity.compact,
                           backgroundColor: color,
