@@ -58,6 +58,13 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
     }
   }
 
+  // Contrast-aware UI color for icons/text rendered ON the note background.
+  static Color _contrastFor(Color bg) {
+    double ch(double c) => c <= 0.03928 ? c / 12.92 : (c + 0.055) / 1.055;
+    final lum = 0.2126 * ch(bg.r) + 0.7152 * ch(bg.g) + 0.0722 * ch(bg.b);
+    return lum > 0.35 ? Colors.black : Colors.white;
+  }
+
   void _save() {
     _task.title = _titleCtrl.text.trim();
     _task.body  = _bodyCtrl.text.trim();
@@ -101,6 +108,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
               emojis: _emojis,
               noteColor: _noteColor,
               textColor: _textColor,
+              onColor: _contrastFor(_noteColor),
               onColorNoteChanged: (c) =>
                   setState(() => _task.color = _colorHex(c)),
               onColorTextChanged: (c) =>
@@ -182,15 +190,16 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _textColor,
-                      side: BorderSide(color: _textColor.withValues(alpha: 0.4)),
+                      foregroundColor: _contrastFor(_noteColor),
+                      side: BorderSide(
+                          color: _contrastFor(_noteColor).withValues(alpha: 0.4)),
                     ),
                   ),
                   const Spacer(),
                   FilledButton(
                     onPressed: _save,
                     style: FilledButton.styleFrom(
-                      backgroundColor: _textColor.withValues(alpha: 0.85),
+                      backgroundColor: _contrastFor(_noteColor).withValues(alpha: 0.85),
                       foregroundColor: _noteColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -244,6 +253,7 @@ class _Toolbar extends StatelessWidget {
   final List<String> emojis;
   final Color noteColor;
   final Color textColor;
+  final Color onColor; // contrast color for icons/labels on note BG
   final Function(Color) onColorNoteChanged;
   final Function(Color) onColorTextChanged;
 
@@ -253,6 +263,7 @@ class _Toolbar extends StatelessWidget {
     required this.emojis,
     required this.noteColor,
     required this.textColor,
+    required this.onColor,
     required this.onColorNoteChanged,
     required this.onColorTextChanged,
   });
@@ -269,101 +280,59 @@ class _Toolbar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
-          // Bold
-          _ToggleBtn(
-            active: task.isBold,
-            icon: Icons.format_bold,
-            onTap: () => _update(() => task.isBold = !task.isBold),
-          ),
-          // Italic
-          _ToggleBtn(
-            active: task.isItalic,
-            icon: Icons.format_italic,
-            onTap: () => _update(() => task.isItalic = !task.isItalic),
-          ),
-          // Underline
-          _ToggleBtn(
-            active: task.isUnderline,
-            icon: Icons.format_underlined,
-            onTap: () => _update(() => task.isUnderline = !task.isUnderline),
-          ),
+          _ToggleBtn(active: task.isBold, icon: Icons.format_bold,
+              onColor: onColor,
+              onTap: () => _update(() => task.isBold = !task.isBold)),
+          _ToggleBtn(active: task.isItalic, icon: Icons.format_italic,
+              onColor: onColor,
+              onTap: () => _update(() => task.isItalic = !task.isItalic)),
+          _ToggleBtn(active: task.isUnderline, icon: Icons.format_underlined,
+              onColor: onColor,
+              onTap: () => _update(() => task.isUnderline = !task.isUnderline)),
 
-          const _Divider(),
+          _Divider(color: onColor),
 
-          // Align
-          _ToggleBtn(
-            active: task.textAlign == 'left',
-            icon: Icons.format_align_left,
-            onTap: () => _update(() => task.textAlign = 'left'),
-          ),
-          _ToggleBtn(
-            active: task.textAlign == 'center',
-            icon: Icons.format_align_center,
-            onTap: () => _update(() => task.textAlign = 'center'),
-          ),
-          _ToggleBtn(
-            active: task.textAlign == 'right',
-            icon: Icons.format_align_right,
-            onTap: () => _update(() => task.textAlign = 'right'),
-          ),
+          _ToggleBtn(active: task.textAlign == 'left',
+              icon: Icons.format_align_left, onColor: onColor,
+              onTap: () => _update(() => task.textAlign = 'left')),
+          _ToggleBtn(active: task.textAlign == 'center',
+              icon: Icons.format_align_center, onColor: onColor,
+              onTap: () => _update(() => task.textAlign = 'center')),
+          _ToggleBtn(active: task.textAlign == 'right',
+              icon: Icons.format_align_right, onColor: onColor,
+              onTap: () => _update(() => task.textAlign = 'right')),
 
-          const _Divider(),
+          _Divider(color: onColor),
 
-          // Font size
-          _IconBtn(
-            icon: Icons.text_decrease,
-            onTap: () => _update(() {
-              if (task.fontSize > 10) task.fontSize--;
-            }),
-          ),
+          _IconBtn(icon: Icons.text_decrease, onColor: onColor,
+              onTap: () => _update(() { if (task.fontSize > 10) task.fontSize--; })),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text('${task.fontSize}',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: TextStyle(fontWeight: FontWeight.bold, color: onColor)),
           ),
-          _IconBtn(
-            icon: Icons.text_increase,
-            onTap: () => _update(() {
-              if (task.fontSize < 32) task.fontSize++;
-            }),
-          ),
+          _IconBtn(icon: Icons.text_increase, onColor: onColor,
+              onTap: () => _update(() { if (task.fontSize < 32) task.fontSize++; })),
 
-          const _Divider(),
+          _Divider(color: onColor),
 
-          // Font picker
-          _FontPicker(
-            current: task.font,
-            onPick: (f) => _update(() => task.font = f),
-          ),
+          _FontPicker(current: task.font, onColor: onColor,
+              onPick: (f) => _update(() => task.font = f)),
 
-          const _Divider(),
+          _Divider(color: onColor),
 
-          // Note background color
-          _ColorSwatch(
-            label: 'BG',
-            color: noteColor,
-            onPick: onColorNoteChanged,
-            context: context,
-            pastelColors: FNPalette.noteColors,
-          ),
+          _ColorSwatch(label: 'BG', color: noteColor, onColor: onColor,
+              onPick: onColorNoteChanged, context: context,
+              pastelColors: FNPalette.noteColors),
+          _ColorSwatch(label: 'T', color: textColor, onColor: onColor,
+              onPick: onColorTextChanged, context: context,
+              pastelColors: null),
 
-          // Text color
-          _ColorSwatch(
-            label: 'T',
-            color: textColor,
-            onPick: onColorTextChanged,
-            context: context,
-            pastelColors: null,
-          ),
+          _Divider(color: onColor),
 
-          const _Divider(),
-
-          // Emoji stamp picker
-          _EmojiPicker(
-            current: task.emojiStamp,
-            emojis: emojis,
-            onPick: (e) => _update(() => task.emojiStamp = e),
-          ),
+          _EmojiPicker(current: task.emojiStamp, emojis: emojis,
+              onColor: onColor,
+              onPick: (e) => _update(() => task.emojiStamp = e)),
         ],
       ),
     );
@@ -375,9 +344,11 @@ class _Toolbar extends StatelessWidget {
 class _ToggleBtn extends StatelessWidget {
   final bool active;
   final IconData icon;
+  final Color onColor;
   final VoidCallback onTap;
   const _ToggleBtn(
-      {required this.active, required this.icon, required this.onTap});
+      {required this.active, required this.icon,
+       required this.onColor, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -387,44 +358,47 @@ class _ToggleBtn extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: active
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
+                ? onColor.withValues(alpha: 0.18)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 18),
+          child: Icon(icon, size: 18, color: onColor),
         ),
       );
 }
 
 class _IconBtn extends StatelessWidget {
   final IconData icon;
+  final Color onColor;
   final VoidCallback onTap;
-  const _IconBtn({required this.icon, required this.onTap});
+  const _IconBtn({required this.icon, required this.onColor, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18),
+          child: Icon(icon, size: 18, color: onColor),
         ),
       );
 }
 
 class _Divider extends StatelessWidget {
-  const _Divider();
+  final Color color;
+  const _Divider({required this.color});
   @override
   Widget build(BuildContext context) => Container(
         height: 24, width: 1,
         margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: Colors.black12,
+        color: color.withValues(alpha: 0.2),
       );
 }
 
 class _FontPicker extends StatelessWidget {
   final String current;
+  final Color onColor;
   final Function(String) onPick;
-  const _FontPicker({required this.current, required this.onPick});
+  const _FontPicker({required this.current, required this.onColor, required this.onPick});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -440,10 +414,11 @@ class _FontPicker extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.black12),
+            border: Border.all(color: onColor.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(current, style: const TextStyle(fontSize: 12)),
+          child: Text(current,
+              style: TextStyle(fontSize: 12, color: onColor)),
         ),
       );
 }
@@ -477,6 +452,7 @@ class _FontSheet extends StatelessWidget {
 class _ColorSwatch extends StatelessWidget {
   final String label;
   final Color color;
+  final Color onColor;
   final Function(Color) onPick;
   final BuildContext context;
   final List<Color>? pastelColors;
@@ -484,10 +460,17 @@ class _ColorSwatch extends StatelessWidget {
   const _ColorSwatch({
     required this.label,
     required this.color,
+    required this.onColor,
     required this.onPick,
     required this.context,
     required this.pastelColors,
   });
+
+  static Color _contrastFor(Color bg) {
+    double ch(double c) => c <= 0.03928 ? c / 12.92 : (c + 0.055) / 1.055;
+    final lum = 0.2126 * ch(bg.r) + 0.7152 * ch(bg.g) + 0.0722 * ch(bg.b);
+    return lum > 0.35 ? Colors.black : Colors.white;
+  }
 
   @override
   Widget build(BuildContext ctx) => GestureDetector(
@@ -498,12 +481,12 @@ class _ColorSwatch extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.black26, width: 1.5),
+            border: Border.all(color: onColor.withValues(alpha: 0.4), width: 1.5),
           ),
           child: Center(
               child: Text(label,
-                  style: const TextStyle(fontSize: 10,
-                      fontWeight: FontWeight.bold))),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                      color: _contrastFor(color)))),
         ),
       );
 
@@ -594,9 +577,11 @@ class _PastelPicker extends StatelessWidget {
 class _EmojiPicker extends StatelessWidget {
   final String current;
   final List<String> emojis;
+  final Color onColor;
   final Function(String) onPick;
   const _EmojiPicker(
-      {required this.current, required this.emojis, required this.onPick});
+      {required this.current, required this.emojis,
+       required this.onColor, required this.onPick});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -644,11 +629,11 @@ class _EmojiPicker extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.black12),
+            border: Border.all(color: onColor.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(8),
           ),
           child: current.isEmpty
-              ? const Icon(Icons.emoji_emotions_outlined, size: 18)
+              ? Icon(Icons.emoji_emotions_outlined, size: 18, color: onColor)
               : Text(current, style: const TextStyle(fontSize: 18)),
         ),
       );

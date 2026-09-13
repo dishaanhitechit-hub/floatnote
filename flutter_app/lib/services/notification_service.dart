@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
@@ -58,6 +59,16 @@ class NotificationService {
     required String noteColor,
   }) async {
     if (!_ready || scheduledAt.isBefore(DateTime.now())) return;
+    if (!kIsWeb && Platform.isWindows) {
+      // Windows scheduled toasts require MSIX packaging; use in-process timer instead
+      final delay = scheduledAt.difference(DateTime.now());
+      Future.delayed(delay, () => showNow(
+        id: _taskNotifId(taskId),
+        title: '📌  $title',
+        body: body.isEmpty ? 'Tap to view your sticky note.' : body,
+      ));
+      return;
+    }
     await _plugin.zonedSchedule(
       _taskNotifId(taskId),
       '📌  $title',
@@ -85,6 +96,15 @@ class NotificationService {
     required String eventColor,
   }) async {
     if (!_ready || scheduledAt.isBefore(DateTime.now())) return;
+    if (!kIsWeb && Platform.isWindows) {
+      final delay = scheduledAt.difference(DateTime.now());
+      Future.delayed(delay, () => showNow(
+        id: _eventNotifId(eventId),
+        title: '📅  $title',
+        body: description.isEmpty ? 'Event starting soon.' : description,
+      ));
+      return;
+    }
     await _plugin.zonedSchedule(
       _eventNotifId(eventId),
       '📅  $title',

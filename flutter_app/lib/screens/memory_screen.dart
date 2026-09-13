@@ -78,9 +78,9 @@ class _SummaryCard extends StatelessWidget {
   static final _colors = FNPalette.noteColors;
 
   static Color _contrastFor(Color bg) {
-    double chan(double c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055).clamp(0.0, 1.0);
-    final lum = 0.2126 * chan(bg.r / 255) + 0.7152 * chan(bg.g / 255) + 0.0722 * chan(bg.b / 255);
-    return lum > 0.35 ? Colors.black87 : Colors.white;
+    double chan(double c) => c <= 0.03928 ? c / 12.92 : (c + 0.055) / 1.055;
+    final lum = 0.2126 * chan(bg.r) + 0.7152 * chan(bg.g) + 0.0722 * chan(bg.b);
+    return lum > 0.35 ? Colors.black : Colors.white;
   }
 
   @override
