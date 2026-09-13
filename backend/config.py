@@ -7,8 +7,10 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 class Config:
     # Use DATABASE_URL env var on Railway/Render, fallback to local SQLite
     _db_url = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'floatnote.db')}")
-    # Heroku/Railway uses postgres:// but SQLAlchemy needs postgresql://
-    SQLALCHEMY_DATABASE_URI = _db_url.replace("postgres://", "postgresql://", 1)
+    # Normalise legacy postgres:// and force psycopg3 driver (Python 3.14 compatible)
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = _db_url.replace("postgresql://", "postgresql+psycopg://", 1) \
+        if _db_url.startswith("postgresql://") else _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SECRET_KEY     = os.environ.get("SECRET_KEY", "floatnote-dev-secret-2026")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "floatnote-jwt-secret-2026")
