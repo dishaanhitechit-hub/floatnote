@@ -6,6 +6,7 @@ class Task(db.Model):
     __tablename__ = "tasks"
 
     id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     title         = db.Column(db.String(200), nullable=False)
     body          = db.Column(db.Text, default="")
     color         = db.Column(db.String(20), default="#FFF9C4")   # hex pastel

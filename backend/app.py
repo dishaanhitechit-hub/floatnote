@@ -1,9 +1,10 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 
 from config import Config
 from extensions import db, scheduler
-from routes import tasks_bp, events_bp, db_manager_bp, stopwatch_bp
+from routes import auth_bp, tasks_bp, events_bp, db_manager_bp, stopwatch_bp
 
 
 def create_app():
@@ -12,7 +13,9 @@ def create_app():
 
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     db.init_app(app)
+    JWTManager(app)
 
+    app.register_blueprint(auth_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(db_manager_bp)

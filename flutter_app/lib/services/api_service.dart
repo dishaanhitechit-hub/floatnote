@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/task.dart';
 import '../models/event.dart';
 import '../models/summary.dart';
+import 'auth_service.dart';
 
 class ApiService {
   final String baseUrl;
@@ -12,9 +13,21 @@ class ApiService {
   // ── Tasks ──────────────────────────────────────────────────────────────────
 
   Future<List<Task>> fetchTasks() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/tasks/')).timeout(const Duration(seconds: 8));
+    final res = await http.get(Uri.parse('$baseUrl/api/tasks/'), headers: _json).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Task.fromJson(j)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTasksRaw() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/tasks/'), headers: _json).timeout(const Duration(seconds: 8));
+    _check(res);
+    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEventsRaw() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/events/'), headers: _json).timeout(const Duration(seconds: 8));
+    _check(res);
+    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
   }
 
   Future<Task> createTask(Map<String, dynamic> data) async {
@@ -55,7 +68,7 @@ class ApiService {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   Future<List<FNEvent>> fetchEvents() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/events/')).timeout(const Duration(seconds: 8));
+    final res = await http.get(Uri.parse('$baseUrl/api/events/'), headers: _json).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => FNEvent.fromJson(j)).toList();
   }
@@ -91,6 +104,7 @@ class ApiService {
   Future<Map<String, dynamic>> previewRange(String from, String to) async {
     final res = await http.get(
       Uri.parse('$baseUrl/api/db/preview?from=$from&to=$to'),
+      headers: _json,
     ).timeout(const Duration(seconds: 8));
     _check(res);
     return jsonDecode(res.body);
@@ -107,7 +121,7 @@ class ApiService {
   }
 
   Future<List<Summary>> fetchSummaries() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/db/summaries'))
+    final res = await http.get(Uri.parse('$baseUrl/api/db/summaries'), headers: _json)
         .timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Summary.fromJson(j)).toList();
@@ -140,7 +154,7 @@ class ApiService {
     if (tag.isNotEmpty) params['tag'] = tag;
     final uri = Uri.parse('$baseUrl/api/tasks/search')
         .replace(queryParameters: params);
-    final res = await http.get(uri).timeout(const Duration(seconds: 8));
+    final res = await http.get(uri, headers: _json).timeout(const Duration(seconds: 8));
     _check(res);
     return (jsonDecode(res.body) as List).map((j) => Task.fromJson(j)).toList();
   }
@@ -159,7 +173,13 @@ class ApiService {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  static const _json = {'Content-Type': 'application/json'};
+  Map<String, String> get _json {
+    final token = AuthService.instance.token;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   void _check(http.Response res) {
     if (res.statusCode >= 400) {

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/task_provider.dart';
+import '../providers/event_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
-import '../theme/palette.dart';
 
 class ConnectionScreen extends StatefulWidget {
   const ConnectionScreen({super.key});
@@ -59,6 +61,10 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         padding: const EdgeInsets.all(20),
         children: [
 
+          // ── Account card ─────────────────────────────────────────────────────
+          _AccountCard(),
+          const SizedBox(height: 24),
+
           // ── Mode selector ───────────────────────────────────────────────────
           _SectionHeader('Database Mode'),
           const SizedBox(height: 8),
@@ -91,27 +97,21 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
 
           const SizedBox(height: 28),
 
-          // ── URL config ───────────────────────────────────────────────────────
-          _SectionHeader('Server URLs'),
+          // ── Server status ────────────────────────────────────────────────────
+          _SectionHeader('Server'),
           const SizedBox(height: 12),
-          _UrlField(
-            label: 'Local URL',
-            hint: 'http://10.0.2.2:5050',
-            ctrl: _localCtrl,
+          _ServerStatusCard(
+            label: 'FloatNote Cloud',
+            icon: Icons.cloud_rounded,
+            pingStatus: _cloudPing,
+          ),
+          const SizedBox(height: 8),
+          _ServerStatusCard(
+            label: 'Local Server',
             icon: Icons.computer_rounded,
             pingStatus: _localPing,
-            onSave: () => s.setLocalUrl(_localCtrl.text.trim()),
           ),
           const SizedBox(height: 12),
-          _UrlField(
-            label: 'Cloud URL',
-            hint: 'https://yourapp.railway.app',
-            ctrl: _cloudCtrl,
-            icon: Icons.cloud_queue_rounded,
-            pingStatus: _cloudPing,
-            onSave: () => s.setCloudUrl(_cloudCtrl.text.trim()),
-          ),
-          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -122,6 +122,13 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   : const Icon(Icons.wifi_tethering_rounded),
               label: const Text('Test Connections'),
             ),
+          ),
+          // Advanced URL config (collapsed by default)
+          _AdvancedUrlSection(
+            localCtrl: _localCtrl,
+            cloudCtrl: _cloudCtrl,
+            onSaveLocal: () => s.setLocalUrl(_localCtrl.text.trim()),
+            onSaveCloud: () => s.setCloudUrl(_cloudCtrl.text.trim()),
           ),
 
           const SizedBox(height: 32),
@@ -357,6 +364,133 @@ class _UrlField extends StatelessWidget {
   }
 }
 
+// ── Server status card (hides raw URL) ───────────────────────────────────────
+
+class _ServerStatusCard extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool? pingStatus;
+
+  const _ServerStatusCard({
+    required this.label,
+    required this.icon,
+    required this.pingStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final Color statusColor;
+    final IconData statusIcon;
+    final String statusText;
+
+    if (pingStatus == null) {
+      statusColor = Colors.grey;
+      statusIcon  = Icons.circle_outlined;
+      statusText  = 'Not tested';
+    } else if (pingStatus == true) {
+      statusColor = Colors.green.shade600;
+      statusIcon  = Icons.check_circle_rounded;
+      statusText  = 'Online';
+    } else {
+      statusColor = Colors.red.shade500;
+      statusIcon  = Icons.cancel_rounded;
+      statusText  = 'Offline';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(children: [
+        Icon(icon, color: scheme.primary, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+        ),
+        Icon(statusIcon, color: statusColor, size: 18),
+        const SizedBox(width: 6),
+        Text(statusText,
+            style: TextStyle(
+                color: statusColor, fontSize: 13, fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
+}
+
+// ── Advanced URL section (collapsed) ─────────────────────────────────────────
+
+class _AdvancedUrlSection extends StatefulWidget {
+  final TextEditingController localCtrl;
+  final TextEditingController cloudCtrl;
+  final VoidCallback onSaveLocal;
+  final VoidCallback onSaveCloud;
+
+  const _AdvancedUrlSection({
+    required this.localCtrl,
+    required this.cloudCtrl,
+    required this.onSaveLocal,
+    required this.onSaveCloud,
+  });
+
+  @override
+  State<_AdvancedUrlSection> createState() => _AdvancedUrlSectionState();
+}
+
+class _AdvancedUrlSectionState extends State<_AdvancedUrlSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: Row(children: [
+              const Text('Advanced',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(width: 4),
+              Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: Colors.grey,
+              ),
+            ]),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 12),
+          _UrlField(
+            label: 'Local Server URL',
+            hint: 'http://10.0.2.2:5050',
+            ctrl: widget.localCtrl,
+            icon: Icons.computer_rounded,
+            pingStatus: null,
+            onSave: widget.onSaveLocal,
+          ),
+          const SizedBox(height: 12),
+          _UrlField(
+            label: 'Cloud Server URL',
+            hint: 'https://yourapp.railway.app',
+            ctrl: widget.cloudCtrl,
+            icon: Icons.cloud_queue_rounded,
+            pingStatus: null,
+            onSave: widget.onSaveCloud,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _ClearBtn extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -426,6 +560,90 @@ class _StatusBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Account card ──────────────────────────────────────────────────────────────
+
+class _AccountCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final auth   = context.watch<AuthProvider>();
+    final scheme = Theme.of(context).colorScheme;
+    final name   = auth.userName  ?? 'User';
+    final email  = auth.userEmail ?? '';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: scheme.primary,
+            child: Text(initial,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: scheme.onPrimaryContainer)),
+                if (email.isNotEmpty)
+                  Text(email,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onPrimaryContainer.withValues(alpha: 0.7))),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () => _confirmLogout(context),
+            icon: const Icon(Icons.logout_rounded, size: 16),
+            label: const Text('Logout'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red.shade600,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to log in again to access your notes.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    // Clear local data first so old notes don't flash on re-login
+    context.read<TaskProvider>().clear();
+    context.read<EventProvider>().clear();
+    await context.read<AuthProvider>().logout();
   }
 }
 

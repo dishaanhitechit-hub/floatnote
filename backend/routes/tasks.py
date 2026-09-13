@@ -1,24 +1,32 @@
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db, scheduler
 from models import Task
 
 tasks_bp = Blueprint("tasks", __name__, url_prefix="/api/tasks")
 
 
+def _uid():
+    return int(get_jwt_identity())
+
+
 @tasks_bp.get("/")
+@jwt_required()
 def list_tasks():
-    tasks = Task.query.order_by(Task.created_at.desc()).all()
+    tasks = Task.query.filter_by(user_id=_uid()).order_by(Task.created_at.desc()).all()
     return jsonify([t.to_dict() for t in tasks])
 
 
 @tasks_bp.post("/")
+@jwt_required()
 def create_task():
     data = request.get_json(force=True)
     if not data or not data.get("title"):
         return jsonify({"error": "title is required"}), 400
 
     task = Task(
+        user_id      = _uid(),
         title        = data["title"],
         body         = data.get("body", ""),
         color        = data.get("color", "#FFF9C4"),
@@ -41,8 +49,9 @@ def create_task():
 
 
 @tasks_bp.put("/<int:task_id>")
+@jwt_required()
 def update_task(task_id):
-    task = Task.query.get_or_404(task_id)
+    task = Task.query.filter_by(id=task_id, user_id=_uid()).first_or_404()
     data = request.get_json(force=True)
 
     allowed = [
@@ -60,16 +69,18 @@ def update_task(task_id):
 
 
 @tasks_bp.delete("/<int:task_id>")
+@jwt_required()
 def delete_task(task_id):
-    task = Task.query.get_or_404(task_id)
+    task = Task.query.filter_by(id=task_id, user_id=_uid()).first_or_404()
     db.session.delete(task)
     db.session.commit()
     return jsonify({"deleted": task_id})
 
 
 @tasks_bp.post("/<int:task_id>/remind")
+@jwt_required()
 def set_reminder(task_id):
-    task = Task.query.get_or_404(task_id)
+    task = Task.query.filter_by(id=task_id, user_id=_uid()).first_or_404()
     data = request.get_json(force=True)
 
     reminder_iso = data.get("reminder_time")
@@ -95,7 +106,6 @@ def set_reminder(task_id):
         args=[task_id, task.title],
         replace_existing=True,
     )
-
     return jsonify({"scheduled": reminder_dt.isoformat()})
 
 
@@ -104,21 +114,16 @@ def _fire_reminder(task_id, title):
 
 
 @tasks_bp.get("/search")
+@jwt_required()
 def search_tasks():
-    """
-    GET /api/tasks/search?q=<text>&tag=<tag>&done=<0|1>
-    Any combination of filters; all are optional.
-    """
     q    = request.args.get("q", "").strip()
     tag  = request.args.get("tag", "").strip()
     done = request.args.get("done")
 
-    query = Task.query
+    query = Task.query.filter_by(user_id=_uid())
     if q:
         like = f"%{q}%"
-        query = query.filter(
-            (Task.title.ilike(like)) | (Task.body.ilike(like))
-        )
+        query = query.filter((Task.title.ilike(like)) | (Task.body.ilike(like)))
     if tag:
         query = query.filter(Task.tag.ilike(f"%{tag}%"))
     if done is not None:
@@ -129,11 +134,11 @@ def search_tasks():
 
 
 @tasks_bp.get("/tags")
+@jwt_required()
 def list_tags():
-    """Return all unique non-empty tags with their counts."""
     rows = (
         db.session.query(Task.tag, db.func.count(Task.id))
-        .filter(Task.tag != "")
+        .filter(Task.user_id == _uid(), Task.tag != "")
         .group_by(Task.tag)
         .order_by(db.func.count(Task.id).desc())
         .all()

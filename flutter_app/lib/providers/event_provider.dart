@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/event.dart';
-import '../services/api_service.dart';
+import '../services/local_db.dart';
+import '../services/sync_service.dart';
 import '../services/notification_service.dart';
 import 'settings_provider.dart';
 
 class EventProvider extends ChangeNotifier {
   final SettingsProvider _settings;
   final _notif = NotificationService.instance;
+  final _local = LocalDb.instance;
   List<FNEvent> _events = [];
   bool loading = false;
 
@@ -14,60 +16,59 @@ class EventProvider extends ChangeNotifier {
 
   List<FNEvent> get events => _events;
 
-  ApiService get _primary => _settings.primaryApi;
-  List<ApiService> get _all => _settings.activeApis;
+  void clear() { _events = []; notifyListeners(); }
 
   List<FNEvent> eventsForDay(DateTime day) => _events.where((e) {
         final s = e.startTime;
         return s.year == day.year && s.month == day.month && s.day == day.day;
       }).toList();
 
+  // ── Load ───────────────────────────────────────────────────────────────────
+
   Future<void> loadEvents() async {
     loading = true;
     notifyListeners();
-    try {
-      _events = await _primary.fetchEvents();
-    } catch (_) {
-      final cloud = _settings.cloudApi;
-      if (cloud != null && _settings.dbMode != DbMode.cloud) {
-        try { _events = await cloud.fetchEvents(); } catch (_) {}
-      }
-    } finally {
-      loading = false;
-      notifyListeners();
-    }
+    _events = await _local.getEvents();
+    loading = false;
+    notifyListeners();
+    _syncInBackground();
   }
 
+  void _syncInBackground() {
+    final api = _settings.cloudApi;
+    if (api == null) return;
+    SyncService.instance.sync(api).then((_) async {
+      _events = await _local.getEvents();
+      notifyListeners();
+    });
+  }
+
+  // ── Add ────────────────────────────────────────────────────────────────────
+
   Future<void> addEvent(Map<String, dynamic> data) async {
-    FNEvent? created;
-    for (final api in _all) {
-      try {
-        final e = await api.createEvent(data);
-        created ??= e;
-      } catch (_) {}
-    }
-    if (created == null) return;
-
-    _events.add(created);
+    final event = await _local.insertEvent(data);
+    _events.add(event);
     notifyListeners();
+    _syncInBackground();
 
-    final fireAt = created.startTime.subtract(
-        Duration(minutes: created.reminderOffsetMin));
+    final fireAt = event.startTime.subtract(
+        Duration(minutes: event.reminderOffsetMin));
     await _notif.scheduleEventReminder(
-      eventId:     created.id,
-      title:       created.title,
-      description: created.description,
+      eventId:     event.id,
+      title:       event.title,
+      description: event.description,
       scheduledAt: fireAt,
-      eventColor:  created.color,
+      eventColor:  event.color,
     );
   }
 
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
   Future<void> deleteEvent(FNEvent event) async {
     await _notif.cancelEventReminder(event.id);
-    for (final api in _all) {
-      try { await api.deleteEvent(event.id); } catch (_) {}
-    }
     _events.removeWhere((e) => e.id == event.id);
     notifyListeners();
+    await _local.softDeleteEvent(event.id);
+    _syncInBackground();
   }
 }

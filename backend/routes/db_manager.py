@@ -1,56 +1,57 @@
 from collections import Counter
 from datetime import date, datetime, timezone
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import Task, Event, Summary
 
 db_manager_bp = Blueprint("db_manager", __name__, url_prefix="/api/db")
 
 
+def _uid():
+    return int(get_jwt_identity())
+
+
 @db_manager_bp.get("/preview")
+@jwt_required()
 def preview_range():
-    """Return counts for the given date range without deleting anything."""
     from_str = request.args.get("from")
     to_str   = request.args.get("to")
-
     if not from_str or not to_str:
         return jsonify({"error": "from and to query params required (YYYY-MM-DD)"}), 400
 
     from_date = date.fromisoformat(from_str)
     to_date   = date.fromisoformat(to_str)
+    uid       = _uid()
 
-    tasks  = _tasks_in_range(from_date, to_date)
-    events = _events_in_range(from_date, to_date)
+    tasks  = _tasks_in_range(from_date, to_date, uid)
+    events = _events_in_range(from_date, to_date, uid)
 
     return jsonify({
-        "from":           from_str,
-        "to":             to_str,
-        "task_count":     len(tasks),
+        "from":            from_str,
+        "to":              to_str,
+        "task_count":      len(tasks),
         "completed_count": sum(1 for t in tasks if t.is_done),
-        "event_count":    len(events),
+        "event_count":     len(events),
     })
 
 
 @db_manager_bp.post("/clear-range")
+@jwt_required()
 def clear_range():
-    """
-    Summarise all tasks/events in [from, to], save the summary,
-    then hard-delete those records.
-    """
     data = request.get_json(force=True)
     from_str = data.get("from")
     to_str   = data.get("to")
-
     if not from_str or not to_str:
         return jsonify({"error": "from and to are required (YYYY-MM-DD)"}), 400
 
     from_date = date.fromisoformat(from_str)
     to_date   = date.fromisoformat(to_str)
+    uid       = _uid()
 
-    tasks  = _tasks_in_range(from_date, to_date)
-    events = _events_in_range(from_date, to_date)
+    tasks  = _tasks_in_range(from_date, to_date, uid)
+    events = _events_in_range(from_date, to_date, uid)
 
-    # Build summary
     tag_counts = Counter(t.tag for t in tasks if t.tag)
     top_tags   = ",".join(tag for tag, _ in tag_counts.most_common(5))
 
@@ -80,16 +81,22 @@ def clear_range():
         db.session.delete(event)
 
     db.session.commit()
-    return jsonify({"summary": summary.to_dict(), "deleted_tasks": len(tasks), "deleted_events": len(events)})
+    return jsonify({
+        "summary":        summary.to_dict(),
+        "deleted_tasks":  len(tasks),
+        "deleted_events": len(events),
+    })
 
 
 @db_manager_bp.get("/summaries")
+@jwt_required()
 def list_summaries():
     summaries = Summary.query.order_by(Summary.created_at.desc()).all()
     return jsonify([s.to_dict() for s in summaries])
 
 
 @db_manager_bp.get("/summaries/<int:summary_id>")
+@jwt_required()
 def get_summary(summary_id):
     s = Summary.query.get_or_404(summary_id)
     return jsonify(s.to_dict())
@@ -97,14 +104,21 @@ def get_summary(summary_id):
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _tasks_in_range(from_date: date, to_date: date):
-    # Use naive datetimes — SQLite stores without timezone
+def _tasks_in_range(from_date: date, to_date: date, user_id: int):
     from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0)
     to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59)
-    return Task.query.filter(Task.created_at >= from_dt, Task.created_at <= to_dt).all()
+    return Task.query.filter(
+        Task.user_id == user_id,
+        Task.created_at >= from_dt,
+        Task.created_at <= to_dt,
+    ).all()
 
 
-def _events_in_range(from_date: date, to_date: date):
+def _events_in_range(from_date: date, to_date: date, user_id: int):
     from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0)
     to_dt   = datetime(to_date.year,   to_date.month,   to_date.day,   23, 59, 59)
-    return Event.query.filter(Event.start_time >= from_dt, Event.start_time <= to_dt).all()
+    return Event.query.filter(
+        Event.user_id == user_id,
+        Event.start_time >= from_dt,
+        Event.start_time <= to_dt,
+    ).all()

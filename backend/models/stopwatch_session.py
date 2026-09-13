@@ -7,6 +7,7 @@ class StopwatchSession(db.Model):
     __tablename__ = "stopwatch_sessions"
 
     id               = db.Column(db.Integer, primary_key=True)
+    user_id          = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     duration_seconds = db.Column(db.Float, default=0.0)
     laps_json        = db.Column(db.Text, default="[]")   # JSON array of lap floats
     label            = db.Column(db.String(120), default="")

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'providers/auth_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/settings_provider.dart';
+import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/stopwatch_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -16,12 +18,15 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.instance.init();
-  final prefs = await SharedPreferences.getInstance();
+  final prefs    = await SharedPreferences.getInstance();
   final settings = SettingsProvider(prefs);
+  final auth     = AuthProvider();
+  await auth.init();
 
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider(create: (_) => TaskProvider(settings)),
         ChangeNotifierProvider(create: (_) => EventProvider(settings)),
@@ -43,10 +48,35 @@ class FloatNoteApp extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
-      home: const _RootShell(),
+      home: const _AuthGate(),
     );
   }
 }
+
+// ── Auth gate — shows login or main app ───────────────────────────────────────
+
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
+    if (auth.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.isAuthenticated) {
+      return const AuthScreen();
+    }
+
+    return const _RootShell();
+  }
+}
+
+// ── Main shell ────────────────────────────────────────────────────────────────
 
 class _RootShell extends StatefulWidget {
   const _RootShell();
@@ -56,6 +86,16 @@ class _RootShell extends StatefulWidget {
 
 class _RootShellState extends State<_RootShell> {
   int _idx = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load fresh data for the logged-in user on every mount
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().loadTasks();
+      context.read<EventProvider>().loadEvents();
+    });
+  }
 
   static const _screens = [
     HomeScreen(),

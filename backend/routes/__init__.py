@@ -1,3 +1,4 @@
+from .auth import auth_bp
 from .tasks import tasks_bp
 from .events import events_bp
 from .db_manager import db_manager_bp
