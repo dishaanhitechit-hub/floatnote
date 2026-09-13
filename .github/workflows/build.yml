@@ -49,3 +49,4 @@ jobs:
           name: floatnote-macos
           path: flutter_app/build/macos/Build/Products/Release/FloatNote-macOS.zip
 
+

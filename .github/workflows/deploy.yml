@@ -20,5 +20,9 @@ jobs:
             git pull origin main
             cd backend
             source venv/bin/activate
+            pip install --upgrade pip
+            pip install --upgrade flask flask-jwt-extended flask-sqlalchemy flask-cors flask-migrate gunicorn
             pip install -r requirements.txt
+            export FLASK_APP=app.py
+            flask db upgrade
             sudo systemctl restart floatnote-backend.service
