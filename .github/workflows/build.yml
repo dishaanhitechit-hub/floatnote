@@ -46,20 +46,3 @@ jobs:
           name: floatnote-macos
           path: flutter_app/build/macos/Build/Products/Release/FloatNote-macOS.zip
 
-  # ── Backend deploy to server ─────────────────────────────────────────────────
-  deploy-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ~/floatnote/backend
-            git pull origin main
-            source venv/bin/activate
-            pip install -r requirements.txt --quiet
-            sudo systemctl restart floatnote
-            echo "Backend deployed successfully"
